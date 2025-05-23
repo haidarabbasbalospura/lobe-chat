@@ -1,0 +1,38 @@
+name: Sync upstream changes
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # Runs every day at midnight UTC
+  workflow_dispatch:       # Allows manual trigger in GitHub UI
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0  # Needed to fetch full history for merging
+
+      - name: Add upstream remote
+        run: git remote add upstream https://github.com/lobehub/lobe-chat.git
+
+      - name: Fetch upstream changes
+        run: git fetch upstream
+
+      - name: Merge upstream main into local main
+        run: |
+          git checkout main
+          git merge upstream/main --no-edit
+
+      - name: Push changes if any
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: 'Auto-sync from upstream lobehub/lobe-chat'
+          branch: main
+          file_pattern: '.'  # Commit all changes
+          author_name: 'github-actions'
+          author_email: 'actions@github.com'
+          push: true
