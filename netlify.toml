@@ -1,5 +1,5 @@
 [build]
-command = "rm -rf .next node_modules/.cache && pnpm run build"
+command = "rm -rf .next node_modules/.cache && pnpm install && pnpm store prune && pnpm run build"
 publish = ".next"
 
 [build.environment]
