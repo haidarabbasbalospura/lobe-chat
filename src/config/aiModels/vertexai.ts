@@ -6,6 +6,32 @@ const vertexaiChatModels: AIChatModelCard[] = [
     abilities: {
       functionCall: true,
       reasoning: true,
+      search: true,
+      vision: true,
+    },
+    contextWindowTokens: 1_048_576 + 65_536,
+    description:
+      'Gemini 2.5 Pro 是 Google 最先进的思维模型，能够对代码、数学和STEM领域的复杂问题进行推理，以及使用长上下文分析大型数据集、代码库和文档。',
+    displayName: 'Gemini 2.5 Pro',
+    enabled: true,
+    id: 'gemini-2.5-pro',
+    maxOutput: 65_536,
+    pricing: {
+      cachedInput: 0.31, // prompts <= 200k tokens
+      input: 1.25, // prompts <= 200k tokens
+      output: 10, // prompts <= 200k tokens
+    },
+    releasedAt: '2025-06-17',
+    settings: {
+      searchImpl: 'params',
+      searchProvider: 'google',
+    },
+    type: 'chat',
+  },
+  {
+    abilities: {
+      functionCall: true,
+      reasoning: true,
       vision: true,
     },
     contextWindowTokens: 1_048_576 + 65_536,
@@ -45,6 +71,31 @@ const vertexaiChatModels: AIChatModelCard[] = [
     abilities: {
       functionCall: true,
       reasoning: true,
+      search: true,
+      vision: true,
+    },
+    contextWindowTokens: 1_048_576 + 65_536,
+    description: 'Gemini 2.5 Flash 是 Google 性价比最高的模型，提供全面的功能。',
+    displayName: 'Gemini 2.5 Flash',
+    enabled: true,
+    id: 'gemini-2.5-flash',
+    maxOutput: 65_536,
+    pricing: {
+      cachedInput: 0.075,
+      input: 0.3,
+      output: 2.5,
+    },
+    releasedAt: '2025-06-17',
+    settings: {
+      searchImpl: 'params',
+      searchProvider: 'google',
+    },
+    type: 'chat',
+  },
+  {
+    abilities: {
+      functionCall: true,
+      reasoning: true,
       vision: true,
     },
     contextWindowTokens: 1_048_576 + 65_536,
@@ -58,6 +109,55 @@ const vertexaiChatModels: AIChatModelCard[] = [
       output: 3.5, // Thinking
     },
     releasedAt: '2025-04-17',
+    type: 'chat',
+  },
+  {
+    abilities: {
+      functionCall: true,
+      reasoning: true,
+      search: true,
+      vision: true,
+    },
+    contextWindowTokens: 1_000_000 + 64_000,
+    description: 'Gemini 2.5 Flash-Lite 是 Google 最小、性价比最高的模型，专为大规模使用而设计。',
+    displayName: 'Gemini 2.5 Flash-Lite',
+    enabled: true,
+    id: 'gemini-2.5-flash-lite',
+    maxOutput: 64_000,
+    pricing: {
+      cachedInput: 0.025,
+      input: 0.1,
+      output: 0.4,
+    },
+    releasedAt: '2025-07-22',
+    settings: {
+      searchImpl: 'params',
+      searchProvider: 'google',
+    },
+    type: 'chat',
+  },
+  {
+    abilities: {
+      functionCall: true,
+      reasoning: true,
+      vision: true,
+    },
+    contextWindowTokens: 1_000_000 + 64_000,
+    description:
+      'Gemini 2.5 Flash-Lite Preview 是 Google 最小、性价比最高的模型，专为大规模使用而设计。',
+    displayName: 'Gemini 2.5 Flash-Lite Preview 06-17',
+    enabled: true,
+    id: 'gemini-2.5-flash-lite-preview-06-17',
+    maxOutput: 64_000,
+    pricing: {
+      input: 0.1,
+      output: 0.4,
+    },
+    releasedAt: '2025-06-17',
+    settings: {
+      searchImpl: 'params',
+      searchProvider: 'google',
+    },
     type: 'chat',
   },
   {

@@ -97,6 +97,7 @@ const useStyles = createStyles(({ css, prefixCls, responsive, token }) => ({
 
 export interface ProviderConfigProps extends Omit<AiProviderDetailItem, 'enabled' | 'source'> {
   apiKeyItems?: FormItemProps[];
+  apiKeyUrl?: string;
   canDeactivate?: boolean;
   checkErrorRender?: CheckErrorRender;
   className?: string;
@@ -127,6 +128,7 @@ const ProviderConfig = memo<ProviderConfigProps>(
     showAceGcm = true,
     extra,
     source = AiProviderSourceEnum.Builtin,
+    apiKeyUrl,
   }) => {
     const {
       proxyUrl,
@@ -134,6 +136,7 @@ const ProviderConfig = memo<ProviderConfigProps>(
       defaultShowBrowserRequest,
       disableBrowserRequest,
       showChecker = true,
+      supportResponsesApi,
     } = settings || {};
     const { t } = useTranslation('modelProvider');
     const [form] = Form.useForm();
@@ -146,6 +149,7 @@ const ProviderConfig = memo<ProviderConfigProps>(
       isLoading,
       configUpdating,
       isFetchOnClient,
+      enableResponseApi,
       isProviderEndpointNotEmpty,
       isProviderApiKeyNotEmpty,
     ] = useAiInfraStore((s) => [
@@ -155,6 +159,7 @@ const ProviderConfig = memo<ProviderConfigProps>(
       aiProviderSelectors.isAiProviderConfigLoading(id)(s),
       aiProviderSelectors.isProviderConfigUpdating(id)(s),
       aiProviderSelectors.isProviderFetchOnClient(id)(s),
+      aiProviderSelectors.isProviderEnableResponseApi(id)(s),
       aiProviderSelectors.isActiveProviderEndpointNotEmpty(s),
       aiProviderSelectors.isActiveProviderApiKeyNotEmpty(s),
     ]);
@@ -181,7 +186,7 @@ const ProviderConfig = memo<ProviderConfigProps>(
             ) : (
               <FormPassword
                 autoComplete={'new-password'}
-                placeholder={t(`providerModels.config.apiKey.placeholder`, { name })}
+                placeholder={t('providerModels.config.apiKey.placeholder', { name })}
                 suffix={
                   configUpdating && (
                     <Icon icon={Loader2Icon} spin style={{ color: theme.colorTextTertiary }} />
@@ -189,7 +194,20 @@ const ProviderConfig = memo<ProviderConfigProps>(
                 }
               />
             ),
-            desc: t(`providerModels.config.apiKey.desc`, { name }),
+            desc: apiKeyUrl ? (
+              <Trans
+                i18nKey="providerModels.config.apiKey.descWithUrl"
+                ns={'modelProvider'}
+                value={{ name }}
+              >
+                请填写你的 {{ name }} API Key,
+                <Link href={apiKeyUrl} target={'_blank'}>
+                  点此获取
+                </Link>
+              </Trans>
+            ) : (
+              t(`providerModels.config.apiKey.desc`, { name })
+            ),
             label: t(`providerModels.config.apiKey.title`),
             name: [KeyVaultsConfigKey, LLMProviderApiTokenKey],
           },
@@ -278,6 +296,19 @@ const ProviderConfig = memo<ProviderConfigProps>(
     const configItems = [
       ...apiKeyItem,
       endpointItem,
+      supportResponsesApi
+        ? {
+            children: isLoading ? (
+              <Skeleton.Button active />
+            ) : (
+              <Switch loading={configUpdating} value={enableResponseApi} />
+            ),
+            desc: t('providerModels.config.responsesApi.desc'),
+            label: t('providerModels.config.responsesApi.title'),
+            minWidth: undefined,
+            name: ['config', 'enableResponseApi'],
+          }
+        : undefined,
       clientFetchItem,
       showChecker
         ? {

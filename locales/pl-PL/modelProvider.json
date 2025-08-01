@@ -66,6 +66,7 @@
       "customRegion": "Niestandardowy region usługi",
       "customSessionToken": "Niestandardowy token sesji",
       "description": "Wprowadź swój AWS AccessKeyId / SecretAccessKey, aby rozpocząć sesję. Aplikacja nie będzie przechowywać Twojej konfiguracji uwierzytelniania",
+      "imageGenerationDescription": "Wprowadź swój AWS AccessKeyId / SecretAccessKey, aby rozpocząć generowanie. Aplikacja nie będzie zapisywać Twoich danych uwierzytelniających",
       "title": "Użyj niestandardowych informacji uwierzytelniających Bedrock"
     }
   },
@@ -188,6 +189,7 @@
       "aesGcm": "Twój klucz oraz adres proxy będą szyfrowane za pomocą <1>AES-GCM</1>",
       "apiKey": {
         "desc": "Proszę wpisać swój {{name}} klucz API",
+        "descWithUrl": "Proszę wprowadzić swój klucz API {{name}}, <3>kliknij tutaj, aby go uzyskać</3>",
         "placeholder": "{{name}} klucz API",
         "title": "Klucz API"
       },
@@ -208,6 +210,10 @@
         "title": "Użyj trybu żądania klienta"
       },
       "helpDoc": "Dokumentacja konfiguracyjna",
+      "responsesApi": {
+        "desc": "Wykorzystuje nową generację formatu zapytań OpenAI, odblokowując zaawansowane funkcje, takie jak łańcuchy myślowe",
+        "title": "Użyj specyfikacji Responses API"
+      },
       "waitingForMore": "Więcej modeli jest w <1>planach integracji</1>, proszę czekać"
     },
     "createNew": {

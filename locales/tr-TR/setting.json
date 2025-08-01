@@ -45,14 +45,25 @@
   },
   "hotkey": {
     "conflicts": "Mevcut kısayol tuşlarıyla çakışıyor",
+    "errors": {
+      "CONFLICT": "Kısayol çakışması: Bu kısayol başka bir işlev tarafından kullanılıyor",
+      "INVALID_FORMAT": "Geçersiz kısayol formatı: Lütfen doğru formatı kullanın (örneğin CommandOrControl+E)",
+      "INVALID_ID": "Geçersiz kısayol kimliği",
+      "NO_MODIFIER": "Kısayol en az bir değiştirici tuş içermelidir (Ctrl, Alt, Shift vb.)",
+      "SYSTEM_OCCUPIED": "Kısayol sistem veya başka bir uygulama tarafından kullanılıyor",
+      "UNKNOWN": "Güncelleme başarısız: Bilinmeyen hata"
+    },
     "group": {
       "conversation": "Sohbet",
+      "desktop": "Masaüstü",
       "essential": "Temel"
     },
     "invalidCombination": "Kısayol tuşu en az bir modifiye tuşu (Ctrl, Alt, Shift) ve bir normal tuş içermelidir",
     "record": "Kısayol tuşunu kaydetmek için tuşa basın",
     "reset": "Varsayılan kısayol tuşlarına sıfırla",
-    "title": "Kısayollar"
+    "title": "Kısayollar",
+    "updateError": "Kısayol güncelleme başarısız: Ağ veya sistem hatası",
+    "updateSuccess": "Kısayol başarıyla güncellendi"
   },
   "llm": {
     "aesGcm": "Anahtarınız ve vekil adresiniz <1>AES-GCM</1> şifreleme algoritması kullanılarak şifrelenecektir",
@@ -129,6 +140,7 @@
     "waitingForMore": "Daha fazla model eklenmesi planlanıyor"
   },
   "plugin": {
+    "addMCPPlugin": "MCP Eklentisi Ekle",
     "addTooltip": "Eklenti Ekle",
     "clearDeprecated": "Kullanım Dışı Eklentileri Kaldır",
     "empty": "Henüz eklenti yok, <1>Eklenti Mağazası</1>'nı keşfetmekten çekinmeyin",
@@ -240,7 +252,19 @@
     "mermaidTheme": {
       "title": "Deniz Kızı Teması"
     },
-    "title": "Sohbet Görünümü"
+    "title": "Sohbet Görünümü",
+    "transitionMode": {
+      "desc": "Sohbet mesajlarının geçiş animasyonu",
+      "options": {
+        "fadeIn": "Solma",
+        "none": {
+          "desc": "Bu, modelin yanıt çıktısına bağlıdır, lütfen kendiniz test edin.",
+          "value": "Yok"
+        },
+        "smooth": "Yumuşak"
+      },
+      "title": "Geçiş Animasyonu"
+    }
   },
   "settingCommon": {
     "lang": {
@@ -258,6 +282,9 @@
   "settingModel": {
     "enableMaxTokens": {
       "title": "Max Token Sınırlamasını Etkinleştir"
+    },
+    "enableReasoningEffort": {
+      "title": "Akıl Yürütme Gücü Ayarını Etkinleştir"
     },
     "frequencyPenalty": {
       "desc": "Değer ne kadar büyükse, kelime dağarcığı o kadar zengin ve çeşitli olur; değer ne kadar düşükse, kelimeler o kadar sade ve basit olur.",
@@ -277,6 +304,15 @@
     "presencePenalty": {
       "desc": "Değer ne kadar büyükse, farklı ifade biçimlerine yönelme eğilimi artar, kavram tekrarından kaçınılır; değer ne kadar küçükse, tekrar eden kavramlar veya anlatımlar kullanma eğilimi artar, ifade daha tutarlı olur.",
       "title": "İfade Çeşitliliği"
+    },
+    "reasoningEffort": {
+      "desc": "Değer ne kadar yüksekse, akıl yürütme yeteneği o kadar güçlü olur, ancak yanıt süresi ve Token tüketimi artabilir",
+      "options": {
+        "high": "Yüksek",
+        "low": "Düşük",
+        "medium": "Orta"
+      },
+      "title": "Akıl Yürütme Gücü"
     },
     "submit": "Model ayarlarını güncelle",
     "temperature": {
@@ -459,6 +495,11 @@
       "placeholder": "Lütfen özel ipucu kelimelerini girin",
       "title": "Özel İpucu"
     },
+    "generationTopic": {
+      "label": "Yapay Zeka Resim Konusu İsimlendirme Modeli",
+      "modelDesc": "Yapay zeka resimlerinin otomatik konu isimlendirmesi için belirlenen model",
+      "title": "Yapay Zeka Resim Otomatik Konu İsimlendirme"
+    },
     "helpInfo": "Yeni bir asistan oluşturduğunuzda, varsayılan asistan ayarları ön ayar olarak kullanılacaktır.",
     "historyCompress": {
       "label": "Oturum Geçmişi Modeli",
@@ -495,6 +536,7 @@
     "hotkey": "Kısayollar",
     "llm": "Modeller",
     "provider": "Yapay Zeka Hizmet Sağlayıcısı",
+    "proxy": "Ağ Proxy",
     "storage": "Veri Depolama",
     "sync": "Bulut Senkronizasyonu",
     "system-agent": "Sistem Asistanı",

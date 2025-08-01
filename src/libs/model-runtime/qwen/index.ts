@@ -2,6 +2,7 @@ import { ModelProvider } from '../types';
 import { processMultiProviderModelList } from '../utils/modelParse';
 import { createOpenAICompatibleRuntime } from '../utils/openaiCompatibleFactory';
 import { QwenAIStream } from '../utils/streams';
+import { createQwenImage } from './createImage';
 
 export interface QwenModelCard {
   id: string;
@@ -28,15 +29,21 @@ export const LobeQwenAI = createOpenAICompatibleRuntime({
 
       return {
         ...rest,
-        ...(['qwen3', 'qwen-turbo', 'qwen-plus'].some((keyword) =>
-          model.toLowerCase().includes(keyword),
-        )
+        ...(model.includes('-thinking')
           ? {
-              enable_thinking: thinking !== undefined ? thinking.type === 'enabled' : false,
+              enable_thinking: true,
               thinking_budget:
                 thinking?.budget_tokens === 0 ? 0 : thinking?.budget_tokens || undefined,
             }
-          : {}),
+          : ['qwen3', 'qwen-turbo', 'qwen-plus'].some((keyword) =>
+              model.toLowerCase().includes(keyword),
+            )
+            ? {
+                enable_thinking: thinking !== undefined ? thinking.type === 'enabled' : false,
+                thinking_budget:
+                  thinking?.budget_tokens === 0 ? 0 : thinking?.budget_tokens || undefined,
+              }
+            : {}),
         frequency_penalty: undefined,
         model,
         presence_penalty: QwenLegacyModels.has(model)
@@ -73,6 +80,7 @@ export const LobeQwenAI = createOpenAICompatibleRuntime({
     },
     handleStream: QwenAIStream,
   },
+  createImage: createQwenImage,
   debug: {
     chatCompletion: () => process.env.DEBUG_QWEN_CHAT_COMPLETION === '1',
   },

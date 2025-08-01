@@ -1,14 +1,13 @@
-import type { VertexAI } from '@google-cloud/vertexai';
 import {
   Content,
-  FunctionCallPart,
   FunctionDeclaration,
+  GenerateContentConfig,
   Tool as GoogleFunctionCallTool,
-  GoogleGenerativeAI,
-  GoogleSearchRetrievalTool,
+  GoogleGenAI,
   Part,
-  SchemaType,
-} from '@google/generative-ai';
+  Type as SchemaType,
+  ThinkingConfig,
+} from '@google/genai';
 
 import { imageUrlToBase64 } from '@/utils/imageToBase64';
 import { safeParseJSON } from '@/utils/safeParseJSON';
@@ -22,14 +21,11 @@ import {
   OpenAIChatMessage,
   UserMessageContentPart,
 } from '../types';
+import { CreateImagePayload, CreateImageResponse } from '../types/image';
 import { AgentRuntimeError } from '../utils/createError';
 import { debugStream } from '../utils/debugStream';
 import { StreamingResponse } from '../utils/response';
-import {
-  GoogleGenerativeAIStream,
-  VertexAIStream,
-  convertIterableToStream,
-} from '../utils/streams';
+import { GoogleGenerativeAIStream, VertexAIStream } from '../utils/streams';
 import { parseDataUri } from '../utils/uriParser';
 
 const modelsOffSafetySettings = new Set(['gemini-2.0-flash-exp']);
@@ -81,18 +77,24 @@ const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com';
 interface LobeGoogleAIParams {
   apiKey?: string;
   baseURL?: string;
-  client?: GoogleGenerativeAI | VertexAI;
+  client?: GoogleGenAI;
   id?: string;
   isVertexAi?: boolean;
 }
 
-interface GoogleAIThinkingConfig {
-  includeThoughts?: boolean;
-  thinkingBudget?: number;
-}
+const isAbortError = (error: Error): boolean => {
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('aborted') ||
+    message.includes('cancelled') ||
+    message.includes('error reading from the stream') ||
+    message.includes('abort') ||
+    error.name === 'AbortError'
+  );
+};
 
 export class LobeGoogleAI implements LobeRuntimeAI {
-  private client: GoogleGenerativeAI;
+  private client: GoogleGenAI;
   private isVertexAi: boolean;
   baseURL?: string;
   apiKey?: string;
@@ -101,9 +103,10 @@ export class LobeGoogleAI implements LobeRuntimeAI {
   constructor({ apiKey, baseURL, client, isVertexAi, id }: LobeGoogleAIParams = {}) {
     if (!apiKey) throw AgentRuntimeError.createError(AgentRuntimeErrorType.InvalidProviderAPIKey);
 
-    this.client = new GoogleGenerativeAI(apiKey);
+    const httpOptions = baseURL ? { baseUrl: baseURL } : undefined;
+
     this.apiKey = apiKey;
-    this.client = client ? (client as GoogleGenerativeAI) : new GoogleGenerativeAI(apiKey);
+    this.client = client ? client : new GoogleGenAI({ apiKey, httpOptions });
     this.baseURL = client ? undefined : baseURL || DEFAULT_BASE_URL;
     this.isVertexAi = isVertexAi || false;
 
@@ -113,71 +116,98 @@ export class LobeGoogleAI implements LobeRuntimeAI {
   async chat(rawPayload: ChatStreamPayload, options?: ChatMethodOptions) {
     try {
       const payload = this.buildPayload(rawPayload);
-      const { model, thinking } = payload;
+      const { model, thinkingBudget } = payload;
 
-      const thinkingConfig: GoogleAIThinkingConfig = {
+      const thinkingConfig: ThinkingConfig = {
         includeThoughts:
-          thinking?.type === 'enabled' ||
-          (!thinking && model && (model.includes('-2.5-') || model.includes('thinking')))
+          !!thinkingBudget ||
+          (!thinkingBudget && model && (model.includes('-2.5-') || model.includes('thinking')))
             ? true
             : undefined,
-        thinkingBudget:
-          thinking?.type === 'enabled'
-            ? Math.min(thinking.budget_tokens, 24_576)
-            : thinking?.type === 'disabled'
-              ? 0
-              : undefined,
+        // https://ai.google.dev/gemini-api/docs/thinking#set-budget
+        thinkingBudget: (() => {
+          if (thinkingBudget !== undefined && thinkingBudget !== null) {
+            if (model.includes('-2.5-flash-lite')) {
+              if (thinkingBudget === 0 || thinkingBudget === -1) {
+                return thinkingBudget;
+              }
+              return Math.max(512, Math.min(thinkingBudget, 24_576));
+            } else if (model.includes('-2.5-flash')) {
+              return Math.min(thinkingBudget, 24_576);
+            } else if (model.includes('-2.5-pro')) {
+              return thinkingBudget === -1 ? -1 : Math.max(128, Math.min(thinkingBudget, 32_768));
+            }
+            return Math.min(thinkingBudget, 24_576);
+          }
+
+          if (model.includes('-2.5-pro') || model.includes('-2.5-flash')) {
+            return -1;
+          } else if (model.includes('-2.5-flash-lite')) {
+            return 0;
+          }
+          return undefined;
+        })(),
       };
 
       const contents = await this.buildGoogleMessages(payload.messages);
 
-      const inputStartAt = Date.now();
-      const geminiStreamResult = await this.client
-        .getGenerativeModel(
-          {
-            generationConfig: {
-              maxOutputTokens: payload.max_tokens,
-              // @ts-expect-error - Google SDK 0.24.0 doesn't have this property for now with
-              response_modalities: modelsWithModalities.has(model) ? ['Text', 'Image'] : undefined,
-              temperature: payload.temperature,
-              topP: payload.top_p,
-              ...(modelsDisableInstuction.has(model) || model.toLowerCase().includes('learnlm')
-                ? {}
-                : { thinkingConfig }),
-            },
-            model,
-            // avoid wide sensitive words
-            // refs: https://github.com/lobehub/lobe-chat/pull/1418
-            safetySettings: [
-              {
-                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                threshold: getThreshold(model),
-              },
-              {
-                category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                threshold: getThreshold(model),
-              },
-              {
-                category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                threshold: getThreshold(model),
-              },
-              {
-                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                threshold: getThreshold(model),
-              },
-            ],
-          },
-          { apiVersion: 'v1beta', baseUrl: this.baseURL },
-        )
-        .generateContentStream({
-          contents,
-          systemInstruction: modelsDisableInstuction.has(model)
-            ? undefined
-            : (payload.system as string),
-          tools: this.buildGoogleTools(payload.tools, payload),
-        });
+      const controller = new AbortController();
+      const originalSignal = options?.signal;
 
-      const googleStream = convertIterableToStream(geminiStreamResult.stream);
+      if (originalSignal) {
+        if (originalSignal.aborted) {
+          controller.abort();
+        } else {
+          originalSignal.addEventListener('abort', () => {
+            controller.abort();
+          });
+        }
+      }
+
+      const config: GenerateContentConfig = {
+        abortSignal: originalSignal,
+        maxOutputTokens: payload.max_tokens,
+        responseModalities: modelsWithModalities.has(model) ? ['Text', 'Image'] : undefined,
+        // avoid wide sensitive words
+        // refs: https://github.com/lobehub/lobe-chat/pull/1418
+        safetySettings: [
+          {
+            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold: getThreshold(model),
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold: getThreshold(model),
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold: getThreshold(model),
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold: getThreshold(model),
+          },
+        ],
+        systemInstruction: modelsDisableInstuction.has(model)
+          ? undefined
+          : (payload.system as string),
+        temperature: payload.temperature,
+        thinkingConfig:
+          modelsDisableInstuction.has(model) || model.toLowerCase().includes('learnlm')
+            ? undefined
+            : thinkingConfig,
+        tools: this.buildGoogleTools(payload.tools, payload),
+        topP: payload.top_p,
+      };
+
+      const inputStartAt = Date.now();
+      const geminiStreamResponse = await this.client.models.generateContentStream({
+        config,
+        contents,
+        model,
+      });
+
+      const googleStream = this.createEnhancedStream(geminiStreamResponse, controller.signal);
       const [prod, useForDebug] = googleStream.tee();
 
       const key = this.isVertexAi
@@ -197,6 +227,16 @@ export class LobeGoogleAI implements LobeRuntimeAI {
     } catch (e) {
       const err = e as Error;
 
+      // 移除之前的静默处理，统一抛出错误
+      if (isAbortError(err)) {
+        console.log('Request was cancelled');
+        throw AgentRuntimeError.chat({
+          error: { message: 'Request was cancelled' },
+          errorType: AgentRuntimeErrorType.ProviderBizError,
+          provider: this.provider,
+        });
+      }
+
       console.log(err);
       const { errorType, error } = this.parseErrorMessage(err.message);
 
@@ -204,24 +244,121 @@ export class LobeGoogleAI implements LobeRuntimeAI {
     }
   }
 
-  async models() {
+  /**
+   * Generate images using Google AI Imagen API
+   * @see https://ai.google.dev/gemini-api/docs/image-generation#imagen
+   */
+  async createImage(payload: CreateImagePayload): Promise<CreateImageResponse> {
+    try {
+      const { model, params } = payload;
+
+      const response = await this.client.models.generateImages({
+        config: {
+          aspectRatio: params.aspectRatio,
+          numberOfImages: 1,
+        },
+        model,
+        prompt: params.prompt,
+      });
+
+      if (!response.generatedImages || response.generatedImages.length === 0) {
+        throw new Error('No images generated');
+      }
+
+      const generatedImage = response.generatedImages[0];
+      if (!generatedImage.image || !generatedImage.image.imageBytes) {
+        throw new Error('Invalid image data');
+      }
+
+      const { imageBytes } = generatedImage.image;
+      // 1. official doc use png as example
+      // 2. no responseType param support like openai now.
+      // I think we can just hard code png now
+      const imageUrl = `data:image/png;base64,${imageBytes}`;
+
+      return { imageUrl };
+    } catch (error) {
+      const err = error as Error;
+      console.error('Google AI image generation error:', err);
+
+      const { errorType, error: parsedError } = this.parseErrorMessage(err.message);
+      throw AgentRuntimeError.createImage({
+        error: parsedError,
+        errorType,
+        provider: this.provider,
+      });
+    }
+  }
+
+  private createEnhancedStream(originalStream: any, signal: AbortSignal): ReadableStream {
+    return new ReadableStream({
+      async start(controller) {
+        let hasData = false;
+
+        try {
+          for await (const chunk of originalStream) {
+            if (signal.aborted) {
+              // 如果有数据已经输出，优雅地关闭流而不是抛出错误
+              if (hasData) {
+                console.log('Stream cancelled gracefully, preserving existing output');
+                controller.close();
+                return;
+              } else {
+                // 如果还没有数据输出，则抛出取消错误
+                throw new Error('Stream cancelled');
+              }
+            }
+
+            hasData = true;
+            controller.enqueue(chunk);
+          }
+        } catch (error) {
+          const err = error as Error;
+
+          // 统一处理所有错误，包括 abort 错误
+          if (isAbortError(err) || signal.aborted) {
+            // 如果有数据已经输出，优雅地关闭流
+            if (hasData) {
+              console.log('Stream reading cancelled gracefully, preserving existing output');
+              controller.close();
+              return;
+            } else {
+              console.log('Stream reading cancelled before any output');
+              controller.error(new Error('Stream cancelled'));
+              return;
+            }
+          } else {
+            // 处理其他流解析错误
+            console.error('Stream parsing error:', err);
+            controller.error(err);
+            return;
+          }
+        }
+
+        controller.close();
+      },
+    });
+  }
+
+  async models(options?: { signal?: AbortSignal }) {
     try {
       const url = `${this.baseURL}/v1beta/models?key=${this.apiKey}`;
       const response = await fetch(url, {
         method: 'GET',
+        signal: options?.signal,
       });
-  
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-  
+
       const json = await response.json();
-      
+
       const modelList: GoogleModelCard[] = json.models;
-  
+
       const processedModels = modelList.map((model) => {
         const id = model.name.replace(/^models\//, '');
-        
+
         return {
           contextWindowTokens: (model.inputTokenLimit || 0) + (model.outputTokenLimit || 0),
           displayName: model.displayName || id,
@@ -229,9 +366,9 @@ export class LobeGoogleAI implements LobeRuntimeAI {
           maxOutput: model.outputTokenLimit || undefined,
         };
       });
-  
+
       const { MODEL_LIST_CONFIGS, processModelList } = await import('../utils/modelParse');
-      
+
       return processModelList(processedModels, MODEL_LIST_CONFIGS.google);
     } catch (error) {
       console.error('Failed to fetch Google models:', error);
@@ -249,6 +386,7 @@ export class LobeGoogleAI implements LobeRuntimeAI {
       system: system_message?.content,
     };
   }
+
   private convertContentToGooglePart = async (
     content: UserMessageContentPart,
   ): Promise<Part | undefined> => {
@@ -295,18 +433,37 @@ export class LobeGoogleAI implements LobeRuntimeAI {
 
   private convertOAIMessagesToGoogleMessage = async (
     message: OpenAIChatMessage,
+    toolCallNameMap?: Map<string, string>,
   ): Promise<Content> => {
     const content = message.content as string | UserMessageContentPart[];
     if (!!message.tool_calls) {
       return {
-        parts: message.tool_calls.map<FunctionCallPart>((tool) => ({
+        parts: message.tool_calls.map<Part>((tool) => ({
           functionCall: {
             args: safeParseJSON(tool.function.arguments)!,
             name: tool.function.name,
           },
         })),
-        role: 'function',
+        role: 'model',
       };
+    }
+
+    // 将 tool_call result 转成 functionResponse part
+    if (message.role === 'tool' && toolCallNameMap && message.tool_call_id) {
+      const functionName = toolCallNameMap.get(message.tool_call_id);
+      if (functionName) {
+        return {
+          parts: [
+            {
+              functionResponse: {
+                name: functionName,
+                response: { result: message.content },
+              },
+            },
+          ],
+          role: 'user',
+        };
+      }
     }
 
     const getParts = async () => {
@@ -326,9 +483,20 @@ export class LobeGoogleAI implements LobeRuntimeAI {
 
   // convert messages from the OpenAI format to Google GenAI SDK
   private buildGoogleMessages = async (messages: OpenAIChatMessage[]): Promise<Content[]> => {
+    const toolCallNameMap = new Map<string, string>();
+    messages.forEach((message) => {
+      if (message.role === 'assistant' && message.tool_calls) {
+        message.tool_calls.forEach((toolCall) => {
+          if (toolCall.type === 'function') {
+            toolCallNameMap.set(toolCall.id, toolCall.function.name);
+          }
+        });
+      }
+    });
+
     const pools = messages
       .filter((message) => message.role !== 'function')
-      .map(async (msg) => await this.convertOAIMessagesToGoogleMessage(msg));
+      .map(async (msg) => await this.convertOAIMessagesToGoogleMessage(msg, toolCallNameMap));
 
     return Promise.all(pools);
   };
@@ -389,12 +557,18 @@ export class LobeGoogleAI implements LobeRuntimeAI {
   ): GoogleFunctionCallTool[] | undefined {
     // 目前 Tools (例如 googleSearch) 无法与其他 FunctionCall 同时使用
     if (payload?.messages?.some((m) => m.tool_calls?.length)) {
-      return; // 若历史消息中已有 function calling，则不再注入任何 Tools
+      return this.buildFunctionDeclarations(tools);
     }
     if (payload?.enabledSearch) {
-      return [{ googleSearch: {} } as GoogleSearchRetrievalTool];
+      return [{ googleSearch: {} }];
     }
 
+    return this.buildFunctionDeclarations(tools);
+  }
+
+  private buildFunctionDeclarations(
+    tools: ChatCompletionTool[] | undefined,
+  ): GoogleFunctionCallTool[] | undefined {
     if (!tools || tools.length === 0) return;
 
     return [

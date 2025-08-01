@@ -17,6 +17,7 @@ import {
   TextToImagePayload,
   TextToSpeechPayload,
 } from './types';
+import { CreateImagePayload } from './types/image';
 
 export interface AgentChatOptions {
   enableTrace?: boolean;
@@ -24,7 +25,7 @@ export interface AgentChatOptions {
   trace?: TracePayload;
 }
 
-class ModelRuntime {
+export class ModelRuntime {
   private _runtime: LobeRuntimeAI;
 
   constructor(runtime: LobeRuntimeAI) {
@@ -61,11 +62,15 @@ class ModelRuntime {
    * ```
    */
   async chat(payload: ChatStreamPayload, options?: ChatMethodOptions) {
-    return this._runtime.chat(payload, options);
+    return this._runtime.chat!(payload, options);
   }
 
   async textToImage(payload: TextToImagePayload) {
     return this._runtime.textToImage?.(payload);
+  }
+
+  async createImage(payload: CreateImagePayload) {
+    return this._runtime.createImage?.(payload);
   }
 
   async models() {
@@ -108,10 +113,9 @@ class ModelRuntime {
   ) {
     // @ts-expect-error runtime map not include vertex so it will be undefined
     const providerAI = providerRuntimeMap[provider] ?? LobeOpenAI;
+
     const runtimeModel: LobeRuntimeAI = new providerAI(params);
 
     return new ModelRuntime(runtimeModel);
   }
 }
-
-export default ModelRuntime;

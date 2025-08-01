@@ -45,14 +45,25 @@ export default {
   },
   hotkey: {
     conflicts: '与现有快捷键冲突',
+    errors: {
+      CONFLICT: '快捷键冲突：该快捷键已被其他功能占用',
+      INVALID_FORMAT: '快捷键格式无效：请使用正确的格式（如 CommandOrControl+E）',
+      INVALID_ID: '无效的快捷键ID',
+      NO_MODIFIER: '快捷键必须包含修饰键（Ctrl、Alt、Shift等）',
+      SYSTEM_OCCUPIED: '快捷键已被系统或其他应用程序占用',
+      UNKNOWN: '更新失败：未知错误',
+    },
     group: {
       conversation: '会话',
+      desktop: '桌面端',
       essential: '基础',
     },
     invalidCombination: '快捷键需要至少包含一个修饰键 (Ctrl, Alt, Shift) 和一个常规键',
     record: '按下按键以录制快捷键',
     reset: '重置为默认快捷键',
     title: '快捷键',
+    updateError: '快捷键更新失败：网络或系统错误',
+    updateSuccess: '快捷键更新成功',
   },
   llm: {
     aesGcm: '您的秘钥与代理地址等将使用 <1>AES-GCM</1> 加密算法进行加密',
@@ -131,6 +142,7 @@ export default {
     waitingForMore: '更多模型正在 <1>计划接入</1> 中，敬请期待',
   },
   plugin: {
+    addMCPPlugin: '添加 MCP 插件',
     addTooltip: '自定义插件',
     clearDeprecated: '移除无效插件',
     empty: '暂无已安装插件，欢迎前往 <1>插件商店</1> 探索',
@@ -245,6 +257,18 @@ export default {
       title: 'Mermaid 主题',
     },
     title: '聊天外观',
+    transitionMode: {
+      desc: '聊天消息的过渡动画',
+      options: {
+        fadeIn: '淡入',
+        none: {
+          desc: '这取决于模型的响应输出方式，请自行测试。',
+          value: '无',
+        },
+        smooth: '平滑',
+      },
+      title: '过渡动画',
+    },
   },
   settingCommon: {
     lang: {
@@ -262,6 +286,9 @@ export default {
   settingModel: {
     enableMaxTokens: {
       title: '开启单次回复限制',
+    },
+    enableReasoningEffort: {
+      title: '开启推理强度调整',
     },
     frequencyPenalty: {
       desc: '值越大，用词越丰富多样；值越低，用词更朴实简单',
@@ -281,6 +308,15 @@ export default {
     presencePenalty: {
       desc: '值越大，越倾向不同的表达方式，避免概念重复；值越小，越倾向使用重复的概念或叙述，表达更具一致性',
       title: '表述发散度',
+    },
+    reasoningEffort: {
+      desc: '值越大，推理能力越强，但可能会增加响应时间和 Token 消耗',
+      options: {
+        high: '高',
+        low: '低',
+        medium: '中',
+      },
+      title: '推理强度',
     },
     submit: '更新模型设置',
     temperature: {
@@ -463,6 +499,11 @@ export default {
       placeholder: '请输入自定义提示词',
       title: '自定义提示词',
     },
+    generationTopic: {
+      label: 'AI 绘画话题命名模型',
+      modelDesc: '指定用于 AI 绘画自动命名话题的模型',
+      title: 'AI 绘画自动命名话题',
+    },
     helpInfo: '当创建新助手时，将以默认助手设置作为预设值。',
     historyCompress: {
       label: '会话历史模型',
@@ -499,6 +540,7 @@ export default {
     'hotkey': '快捷键',
     'llm': '语言模型',
     'provider': 'AI 服务商',
+    'proxy': '网络代理',
     'storage': '数据存储',
     'sync': '云端同步',
     'system-agent': '系统助手',

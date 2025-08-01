@@ -45,14 +45,25 @@
   },
   "hotkey": {
     "conflicts": "Conflict met bestaande sneltoetsen",
+    "errors": {
+      "CONFLICT": "Sneltoetsconflict: deze sneltoets wordt al door een andere functie gebruikt",
+      "INVALID_FORMAT": "Ongeldig sneltoetsformaat: gebruik het juiste formaat (bijv. CommandOrControl+E)",
+      "INVALID_ID": "Ongeldige sneltoets-ID",
+      "NO_MODIFIER": "Sneltoets moet een modificatortoets bevatten (Ctrl, Alt, Shift, enz.)",
+      "SYSTEM_OCCUPIED": "Sneltoets wordt al door het systeem of een andere applicatie gebruikt",
+      "UNKNOWN": "Bijwerken mislukt: onbekende fout"
+    },
     "group": {
       "conversation": "Gesprek",
+      "desktop": "Desktop",
       "essential": "Essentieel"
     },
     "invalidCombination": "Sneltoets moet ten minste één modifier-toets (Ctrl, Alt, Shift) en één reguliere toets bevatten",
     "record": "Druk op een toets om de sneltoets op te nemen",
     "reset": "Reset naar standaard sneltoetsen",
-    "title": "Sneltoetsen"
+    "title": "Sneltoetsen",
+    "updateError": "Sneltoets bijwerken mislukt: netwerk- of systeemfout",
+    "updateSuccess": "Sneltoets succesvol bijgewerkt"
   },
   "llm": {
     "aesGcm": "Uw sleutel en proxy-adres zullen worden versleuteld met het <1>AES-GCM</1> encryptie-algoritme",
@@ -129,6 +140,7 @@
     "waitingForMore": "Meer modellen worden <1>gepland om te worden toegevoegd</1>, dus blijf op de hoogte"
   },
   "plugin": {
+    "addMCPPlugin": "MCP-plug-in toevoegen",
     "addTooltip": "Voeg aangepaste plug-in toe",
     "clearDeprecated": "Verwijder verouderde plug-ins",
     "empty": "Geen geïnstalleerde plug-ins, ga naar de <1>plug-in store</1> om te verkennen",
@@ -240,7 +252,19 @@
     "mermaidTheme": {
       "title": "Mermaid-thema"
     },
-    "title": "Chat uiterlijk"
+    "title": "Chat uiterlijk",
+    "transitionMode": {
+      "desc": "Overgangsanimatie van chatberichten",
+      "options": {
+        "fadeIn": "Vervagen",
+        "none": {
+          "desc": "Dit hangt af van de manier waarop het model reageert; test dit zelf.",
+          "value": "Geen"
+        },
+        "smooth": "Vloeiend"
+      },
+      "title": "Overgangsanimatie"
+    }
   },
   "settingCommon": {
     "lang": {
@@ -258,6 +282,9 @@
   "settingModel": {
     "enableMaxTokens": {
       "title": "Limiet voor enkele reacties inschakelen"
+    },
+    "enableReasoningEffort": {
+      "title": "Schakel redeneerkracht aanpassing in"
     },
     "frequencyPenalty": {
       "desc": "Hoe hoger de waarde, hoe rijker en gevarieerder de woordkeuze; hoe lager de waarde, hoe eenvoudiger en directer de woordkeuze",
@@ -277,6 +304,15 @@
     "presencePenalty": {
       "desc": "Hoe hoger de waarde, hoe meer de neiging om verschillende uitdrukkingen te gebruiken en herhaling van concepten te vermijden; hoe lager de waarde, hoe meer de neiging om herhalende concepten of verhalen te gebruiken, wat zorgt voor meer consistentie in de uitdrukking",
       "title": "Uitdrukkingsdiversiteit"
+    },
+    "reasoningEffort": {
+      "desc": "Hoe hoger de waarde, hoe sterker het redeneervermogen, maar dit kan de reactietijd en het tokenverbruik verhogen",
+      "options": {
+        "high": "Hoog",
+        "low": "Laag",
+        "medium": "Gemiddeld"
+      },
+      "title": "Redeneerkracht"
     },
     "submit": "Modelinstellingen bijwerken",
     "temperature": {
@@ -459,6 +495,11 @@
       "placeholder": "Voer aangepaste prompt in",
       "title": "Aangepaste prompt"
     },
+    "generationTopic": {
+      "label": "AI-schilderij onderwerp naamgevingsmodel",
+      "modelDesc": "Model aangewezen voor het automatisch benoemen van onderwerpen in AI-schilderijen",
+      "title": "Automatisch onderwerp naamgeven voor AI-schilderijen"
+    },
     "helpInfo": "Wanneer je een nieuwe assistent maakt, worden de standaard assistentinstellingen als standaardwaarden gebruikt.",
     "historyCompress": {
       "label": "Gespreksgeschiedenismodel",
@@ -495,6 +536,7 @@
     "hotkey": "Sneltoetsen",
     "llm": "Taalmodel",
     "provider": "AI-dienstverlener",
+    "proxy": "Netwerkproxy",
     "storage": "Gegevensopslag",
     "sync": "Cloudsynchronisatie",
     "system-agent": "Systeemassistent",

@@ -1,19 +1,20 @@
 /* eslint-disable sort-keys-fix/sort-keys-fix, typescript-sort-keys/interface */
 // Disable the auto sort key eslint rule to make the code more logic and readable
+import { t } from 'i18next';
 import { produce } from 'immer';
 import { template } from 'lodash-es';
 import { StateCreator } from 'zustand/vanilla';
 
 import { LOADING_FLAT, MESSAGE_CANCEL_FLAT } from '@/const/message';
 import { TraceEventType, TraceNameMap } from '@/const/trace';
-import { isServerMode } from '@/const/version';
+import { isDesktop, isServerMode } from '@/const/version';
 import { knowledgeBaseQAPrompts } from '@/prompts/knowledgeBaseQA';
 import { chatService } from '@/services/chat';
 import { messageService } from '@/services/message';
 import { useAgentStore } from '@/store/agent';
 import { agentChatConfigSelectors, agentSelectors } from '@/store/agent/selectors';
 import { getAgentStoreState } from '@/store/agent/store';
-import { aiModelSelectors } from '@/store/aiInfra';
+import { aiModelSelectors, aiProviderSelectors } from '@/store/aiInfra';
 import { getAiInfraStoreState } from '@/store/aiInfra/store';
 import { chatHelpers } from '@/store/chat/helpers';
 import { ChatStore } from '@/store/chat/store';
@@ -24,7 +25,7 @@ import { WebBrowsingManifest } from '@/tools/web-browsing';
 import { ChatMessage, CreateMessageParams, SendMessageParams } from '@/types/message';
 import { ChatImageItem } from '@/types/message/image';
 import { MessageSemanticSearchChunk } from '@/types/rag';
-import { setNamespace } from '@/utils/storeDebug';
+import { Action, setNamespace } from '@/utils/storeDebug';
 
 import { chatSelectors, topicSelectors } from '../../../selectors';
 
@@ -84,6 +85,7 @@ export interface AIGenerateAction {
     provider: string;
   }) => Promise<{
     isFunctionCall: boolean;
+    content: string;
     traceId?: string;
   }>;
   /**
@@ -104,7 +106,12 @@ export interface AIGenerateAction {
   internal_toggleChatLoading: (
     loading: boolean,
     id?: string,
-    action?: string,
+    action?: Action,
+  ) => AbortController | undefined;
+  internal_toggleMessageInToolsCalling: (
+    loading: boolean,
+    id?: string,
+    action?: Action,
   ) => AbortController | undefined;
   /**
    * Controls the streaming state of tool calling processes, updating the UI accordingly
@@ -184,7 +191,7 @@ export const generateAIChat: StateCreator<
 
       // if there is no activeTopicId and the feature length is greater than the threshold
       // then create a new topic and active it
-      if (!get().activeTopicId && featureLength >= agentConfig.autoCreateTopicThreshold) {
+      if (!activeTopicId && featureLength >= agentConfig.autoCreateTopicThreshold) {
         // we need to create a temp message for optimistic update
         tempMessageId = get().internal_createTmpMessage(newMessage);
         get().internal_toggleMessageLoading(true, tempMessageId);
@@ -259,15 +266,16 @@ export const generateAIChat: StateCreator<
 
       // check activeTopic and then auto update topic title
       if (newTopicId) {
-        const chats = chatSelectors.activeBaseChats(get());
+        const chats = chatSelectors.getBaseChatsByKey(messageMapKey(activeId, newTopicId))(get());
         await get().summaryTopicTitle(newTopicId, chats);
         return;
       }
 
-      const topic = topicSelectors.currentActiveTopic(get());
+      if (!activeTopicId) return;
+      const topic = topicSelectors.getTopicById(activeTopicId)(get());
 
       if (topic && !topic.title) {
-        const chats = chatSelectors.activeBaseChats(get());
+        const chats = chatSelectors.getBaseChatsByKey(messageMapKey(activeId, topic.id))(get());
         await get().summaryTopicTitle(topic.id, chats);
       }
     };
@@ -299,7 +307,8 @@ export const generateAIChat: StateCreator<
     // create a new array to avoid the original messages array change
     const messages = [...originalMessages];
 
-    const { model, provider, chatConfig } = agentSelectors.currentAgentConfig(getAgentStoreState());
+    const agentStoreState = getAgentStoreState();
+    const { model, provider, chatConfig } = agentSelectors.currentAgentConfig(agentStoreState);
 
     let fileChunks: MessageSemanticSearchChunk[] | undefined;
     let ragQueryId;
@@ -323,7 +332,7 @@ export const generateAIChat: StateCreator<
         chunks,
         userQuery: lastMsg.content,
         rewriteQuery,
-        knowledge: agentSelectors.currentEnabledKnowledge(getAgentStoreState()),
+        knowledge: agentSelectors.currentEnabledKnowledge(agentStoreState),
       });
 
       // 3. add the retrieve context messages to the messages history
@@ -355,14 +364,25 @@ export const generateAIChat: StateCreator<
     if (!assistantId) return;
 
     // 3. place a search with the search working model if this model is not support tool use
+    const aiInfraStoreState = getAiInfraStoreState();
     const isModelSupportToolUse = aiModelSelectors.isModelSupportToolUse(
       model,
       provider!,
-    )(getAiInfraStoreState());
-    const isAgentEnableSearch = agentChatConfigSelectors.isAgentEnableSearch(getAgentStoreState());
+    )(aiInfraStoreState);
+    const isProviderHasBuiltinSearch = aiProviderSelectors.isProviderHasBuiltinSearch(provider!)(
+      aiInfraStoreState,
+    );
+    const isModelHasBuiltinSearch = aiModelSelectors.isModelHasBuiltinSearch(
+      model,
+      provider!,
+    )(aiInfraStoreState);
+    const useModelBuiltinSearch = agentChatConfigSelectors.useModelBuiltinSearch(agentStoreState);
+    const useModelSearch =
+      (isProviderHasBuiltinSearch || isModelHasBuiltinSearch) && useModelBuiltinSearch;
+    const isAgentEnableSearch = agentChatConfigSelectors.isAgentEnableSearch(agentStoreState);
 
-    if (isAgentEnableSearch && !isModelSupportToolUse) {
-      const { model, provider } = agentChatConfigSelectors.searchFCModel(getAgentStoreState());
+    if (isAgentEnableSearch && !useModelSearch && !isModelSupportToolUse) {
+      const { model, provider } = agentChatConfigSelectors.searchFCModel(agentStoreState);
 
       let isToolsCalling = false;
       let isError = false;
@@ -370,7 +390,7 @@ export const generateAIChat: StateCreator<
       const abortController = get().internal_toggleChatLoading(
         true,
         assistantId,
-        n('generateMessage(start)', { messageId: assistantId, messages }) as string,
+        n('generateMessage(start)', { messageId: assistantId, messages }),
       );
 
       get().internal_toggleSearchWorkflow(true, assistantId);
@@ -421,7 +441,7 @@ export const generateAIChat: StateCreator<
       get().internal_toggleChatLoading(
         false,
         assistantId,
-        n('generateMessage(start)', { messageId: assistantId, messages }) as string,
+        n('generateMessage(start)', { messageId: assistantId, messages }),
       );
       get().internal_toggleSearchWorkflow(false, assistantId);
 
@@ -430,6 +450,7 @@ export const generateAIChat: StateCreator<
 
       // if it's the function call message, trigger the function method
       if (isToolsCalling) {
+        get().internal_toggleMessageInToolsCalling(true, assistantId);
         await refreshMessages();
         await triggerToolCalls(assistantId, {
           threadId: params?.threadId,
@@ -442,7 +463,7 @@ export const generateAIChat: StateCreator<
     }
 
     // 4. fetch the AI response
-    const { isFunctionCall } = await internal_fetchAIChatMessage({
+    const { isFunctionCall, content } = await internal_fetchAIChatMessage({
       messages,
       messageId: assistantId,
       params,
@@ -452,18 +473,37 @@ export const generateAIChat: StateCreator<
 
     // 5. if it's the function call message, trigger the function method
     if (isFunctionCall) {
+      get().internal_toggleMessageInToolsCalling(true, assistantId);
       await refreshMessages();
       await triggerToolCalls(assistantId, {
         threadId: params?.threadId,
         inPortalThread: params?.inPortalThread,
       });
+    } else {
+      // 显示桌面通知（仅在桌面端且窗口隐藏时）
+      if (isDesktop) {
+        try {
+          // 动态导入桌面通知服务，避免在非桌面端环境中导入
+          const { desktopNotificationService } = await import(
+            '@/services/electron/desktopNotification'
+          );
+
+          await desktopNotificationService.showNotification({
+            body: content,
+            title: t('notification.finishChatGeneration', { ns: 'electron' }),
+          });
+        } catch (error) {
+          // 静默处理错误，不影响正常流程
+          console.error('Desktop notification error:', error);
+        }
+      }
     }
 
     // 6. summary history if context messages is larger than historyCount
-    const historyCount = agentChatConfigSelectors.historyCount(getAgentStoreState());
+    const historyCount = agentChatConfigSelectors.historyCount(agentStoreState);
 
     if (
-      agentChatConfigSelectors.enableHistoryCount(getAgentStoreState()) &&
+      agentChatConfigSelectors.enableHistoryCount(agentStoreState) &&
       chatConfig.enableCompressHistory &&
       originalMessages.length > historyCount
     ) {
@@ -489,13 +529,15 @@ export const generateAIChat: StateCreator<
     const abortController = internal_toggleChatLoading(
       true,
       messageId,
-      n('generateMessage(start)', { messageId, messages }) as string,
+      n('generateMessage(start)', { messageId, messages }),
     );
 
     const agentConfig = agentSelectors.currentAgentConfig(getAgentStoreState());
     const chatConfig = agentChatConfigSelectors.currentChatConfig(getAgentStoreState());
 
-    const compiler = template(chatConfig.inputTemplate, { interpolate: /{{([\S\s]+?)}}/g });
+    const compiler = template(chatConfig.inputTemplate, {
+      interpolate: /{{\s*(text)\s*}}/g,
+    });
 
     // ================================== //
     //   messages uniformly preprocess    //
@@ -536,6 +578,11 @@ export const generateAIChat: StateCreator<
     // 4. handle max_tokens
     agentConfig.params.max_tokens = chatConfig.enableMaxTokens
       ? agentConfig.params.max_tokens
+      : undefined;
+
+    // 5. handle reasoning_effort
+    agentConfig.params.reasoning_effort = chatConfig.enableReasoningEffort
+      ? agentConfig.params.reasoning_effort
       : undefined;
 
     let isFunctionCall = false;
@@ -733,7 +780,7 @@ export const generateAIChat: StateCreator<
 
     internal_toggleChatLoading(false, messageId, n('generateMessage(end)') as string);
 
-    return { isFunctionCall, traceId: msgTraceId };
+    return { isFunctionCall, traceId: msgTraceId, content: output };
   },
 
   internal_resendMessage: async (
@@ -787,6 +834,9 @@ export const generateAIChat: StateCreator<
   // ----- Loading ------- //
   internal_toggleChatLoading: (loading, id, action) => {
     return get().internal_toggleLoadingArrays('chatLoadingIds', loading, id, action);
+  },
+  internal_toggleMessageInToolsCalling: (loading, id) => {
+    return get().internal_toggleLoadingArrays('messageInToolsCallingIds', loading, id);
   },
   internal_toggleChatReasoning: (loading, id, action) => {
     return get().internal_toggleLoadingArrays('reasoningLoadingIds', loading, id, action);

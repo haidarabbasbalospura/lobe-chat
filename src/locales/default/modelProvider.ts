@@ -68,6 +68,8 @@ export default {
       customSessionToken: '自定义 Session Token',
       description:
         '输入你的 AWS AccessKeyId / SecretAccessKey 即可开始会话。应用不会记录你的鉴权配置',
+      imageGenerationDescription:
+        '输入你的 AWS AccessKeyId / SecretAccessKey 即可开始生成。应用不会记录你的鉴权配置',
       title: '使用自定义 Bedrock 鉴权信息',
     },
   },
@@ -190,6 +192,7 @@ export default {
       aesGcm: '您的秘钥与代理地址等将使用 <1>AES-GCM</1> 加密算法进行加密',
       apiKey: {
         desc: '请填写你的 {{name}} API Key',
+        descWithUrl: '请填写你的 {{name}} API Key，<3>点此获取</3>',
         placeholder: '{{name}} API Key',
         title: 'API Key',
       },
@@ -210,6 +213,10 @@ export default {
         title: '使用客户端请求模式',
       },
       helpDoc: '配置教程',
+      responsesApi: {
+        desc: '采用 OpenAI 新一代请求格式规范，解锁思维链等进阶特性',
+        title: '使用 Responses API 规范',
+      },
       waitingForMore: '更多模型正在 <1>计划接入</1> 中，敬请期待',
     },
     createNew: {

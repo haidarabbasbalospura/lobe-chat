@@ -11,10 +11,15 @@ export const LobeHunyuanAI = createOpenAICompatibleRuntime({
   baseURL: 'https://api.hunyuan.cloud.tencent.com/v1',
   chatCompletion: {
     handlePayload: (payload) => {
-      const { enabledSearch, ...rest } = payload;
+      // eslint-disable-next-line unused-imports/no-unused-vars, @typescript-eslint/no-unused-vars
+      const { enabledSearch, frequency_penalty, model, presence_penalty, thinking, ...rest } =
+        payload;
 
       return {
         ...rest,
+        frequency_penalty: undefined,
+        model,
+        presence_penalty: undefined,
         stream: true,
         ...(enabledSearch && {
           citation: true,
@@ -24,6 +29,10 @@ export const LobeHunyuanAI = createOpenAICompatibleRuntime({
           */
           enable_speed_search: process.env.HUNYUAN_ENABLE_SPEED_SEARCH === '1',
           search_info: true,
+        }),
+        ...(model === 'hunyuan-a13b' && {
+          enable_thinking:
+            thinking?.type === 'enabled' ? true : thinking?.type === 'disabled' ? false : undefined,
         }),
       } as any;
     },

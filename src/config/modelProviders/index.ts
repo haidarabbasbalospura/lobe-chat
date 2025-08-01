@@ -2,6 +2,7 @@ import { ChatModelCard, ModelProviderCard } from '@/types/llm';
 
 import Ai21Provider from './ai21';
 import Ai360Provider from './ai360';
+import AiHubMixProvider from './aihubmix';
 import AnthropicProvider from './anthropic';
 import AzureProvider from './azure';
 import AzureAIProvider from './azureai';
@@ -10,6 +11,7 @@ import BedrockProvider from './bedrock';
 import CloudflareProvider from './cloudflare';
 import CohereProvider from './cohere';
 import DeepSeekProvider from './deepseek';
+import FalProvider from './fal';
 import FireworksAIProvider from './fireworksai';
 import GiteeAIProvider from './giteeai';
 import GithubProvider from './github';
@@ -45,6 +47,7 @@ import TaichuProvider from './taichu';
 import TencentcloudProvider from './tencentcloud';
 import TogetherAIProvider from './togetherai';
 import UpstageProvider from './upstage';
+import V0Provider from './v0';
 import VertexAIProvider from './vertexai';
 import VLLMProvider from './vllm';
 import VolcengineProvider from './volcengine';
@@ -83,6 +86,7 @@ export const LOBE_DEFAULT_MODEL_LIST: ChatModelCard[] = [
   JinaProvider.chatModels,
   SambaNovaProvider.chatModels,
   CohereProvider.chatModels,
+  V0Provider.chatModels,
   ZeroOneProvider.chatModels,
   StepfunProvider.chatModels,
   NovitaProvider.chatModels,
@@ -91,6 +95,7 @@ export const LOBE_DEFAULT_MODEL_LIST: ChatModelCard[] = [
   TaichuProvider.chatModels,
   CloudflareProvider.chatModels,
   Ai360Provider.chatModels,
+  AiHubMixProvider.chatModels,
   SiliconCloudProvider.chatModels,
   GiteeAIProvider.chatModels,
   UpstageProvider.chatModels,
@@ -119,9 +124,9 @@ export const DEFAULT_MODEL_PROVIDER_LIST = [
   GoogleProvider,
   VertexAIProvider,
   DeepSeekProvider,
-  PPIOProvider,
   HuggingFaceProvider,
   OpenRouterProvider,
+  FalProvider,
   CloudflareProvider,
   GithubProvider,
   NovitaProvider,
@@ -139,6 +144,7 @@ export const DEFAULT_MODEL_PROVIDER_LIST = [
   JinaProvider,
   SambaNovaProvider,
   CohereProvider,
+  V0Provider,
   QwenProvider,
   WenxinProvider,
   TencentcloudProvider,
@@ -159,6 +165,7 @@ export const DEFAULT_MODEL_PROVIDER_LIST = [
   GiteeAIProvider,
   TaichuProvider,
   Ai360Provider,
+  AiHubMixProvider,
   Search1APIProvider,
   InfiniAIProvider,
   QiniuProvider,
@@ -175,6 +182,7 @@ export const isProviderDisableBrowserRequest = (id: string) => {
 
 export { default as Ai21ProviderCard } from './ai21';
 export { default as Ai360ProviderCard } from './ai360';
+export { default as AiHubMixProviderCard } from './aihubmix';
 export { default as AnthropicProviderCard } from './anthropic';
 export { default as AzureProviderCard } from './azure';
 export { default as AzureAIProviderCard } from './azureai';
@@ -183,6 +191,7 @@ export { default as BedrockProviderCard } from './bedrock';
 export { default as CloudflareProviderCard } from './cloudflare';
 export { default as CohereProviderCard } from './cohere';
 export { default as DeepSeekProviderCard } from './deepseek';
+export { default as FalProviderCard } from './fal';
 export { default as FireworksAIProviderCard } from './fireworksai';
 export { default as GiteeAIProviderCard } from './giteeai';
 export { default as GithubProviderCard } from './github';
@@ -195,6 +204,7 @@ export { default as InfiniAIProviderCard } from './infiniai';
 export { default as InternLMProviderCard } from './internlm';
 export { default as JinaProviderCard } from './jina';
 export { default as LMStudioProviderCard } from './lmstudio';
+export { default as LobeHubProviderCard } from './lobehub';
 export { default as MinimaxProviderCard } from './minimax';
 export { default as MistralProviderCard } from './mistral';
 export { default as ModelScopeProviderCard } from './modelscope';
@@ -218,6 +228,7 @@ export { default as TaichuProviderCard } from './taichu';
 export { default as TencentCloudProviderCard } from './tencentcloud';
 export { default as TogetherAIProviderCard } from './togetherai';
 export { default as UpstageProviderCard } from './upstage';
+export { default as V0ProviderCard } from './v0';
 export { default as VertexAIProviderCard } from './vertexai';
 export { default as VLLMProviderCard } from './vllm';
 export { default as VolcengineProviderCard } from './volcengine';

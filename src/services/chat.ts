@@ -10,11 +10,12 @@ import { DEFAULT_AGENT_CONFIG } from '@/const/settings';
 import { TracePayload, TraceTagMap } from '@/const/trace';
 import { isDeprecatedEdition, isDesktop, isServerMode } from '@/const/version';
 import {
-  AgentRuntime,
   AgentRuntimeError,
   ChatCompletionErrorPayload,
   ModelProvider,
+  ModelRuntime,
 } from '@/libs/model-runtime';
+import { parseDataUri } from '@/libs/model-runtime/utils/uriParser';
 import { filesPrompts } from '@/prompts/files';
 import { BuiltinSystemRolePrompts } from '@/prompts/systemRole';
 import { getAgentStoreState } from '@/store/agent';
@@ -29,18 +30,28 @@ import {
   modelConfigSelectors,
   modelProviderSelectors,
   preferenceSelectors,
+  userGeneralSettingsSelectors,
   userProfileSelectors,
 } from '@/store/user/selectors';
 import { WebBrowsingManifest } from '@/tools/web-browsing';
 import { WorkingModel } from '@/types/agent';
 import { ChatErrorType } from '@/types/fetch';
-import { ChatMessage, MessageToolCall } from '@/types/message';
+import { ChatImageItem, ChatMessage, MessageToolCall } from '@/types/message';
 import type { ChatStreamPayload, OpenAIChatMessage } from '@/types/openai/chat';
 import { UserMessageContentPart } from '@/types/openai/chat';
+import { parsePlaceholderVariablesMessages } from '@/utils/client/parserPlaceholder';
+import { fetchWithInvokeStream } from '@/utils/electron/desktopRemoteRPCFetch';
 import { createErrorResponse } from '@/utils/errorResponse';
-import { FetchSSEOptions, fetchSSE, getMessageError } from '@/utils/fetch';
+import {
+  FetchSSEOptions,
+  fetchSSE,
+  getMessageError,
+  standardizeAnimationStyle,
+} from '@/utils/fetch';
+import { imageUrlToBase64 } from '@/utils/imageToBase64';
 import { genToolCallingName } from '@/utils/toolCall';
 import { createTraceHeader, getTraceId } from '@/utils/trace';
+import { isLocalUrl } from '@/utils/url';
 
 import { createHeaderWithAuth, createPayloadWithKeyVaults } from './_auth';
 import { API_ENDPOINTS } from './_url';
@@ -52,6 +63,14 @@ const isCanUseFC = (model: string, provider: string) => {
   }
 
   return aiModelSelectors.isModelSupportToolUse(model, provider)(getAiInfraStoreState());
+};
+
+const isCanUseVision = (model: string, provider: string) => {
+  // TODO: remove isDeprecatedEdition condition in V2.0
+  if (isDeprecatedEdition) {
+    return modelProviderSelectors.isModelEnabledVision(model)(getUserStoreState());
+  }
+  return aiModelSelectors.isModelSupportVision(model, provider)(getAiInfraStoreState());
 };
 
 /**
@@ -149,7 +168,7 @@ export function initializeWithClientStore(provider: string, payload?: any) {
    * Configuration override order:
    * payload -> providerAuthPayload -> commonOptions
    */
-  return AgentRuntime.initializeWithProvider(provider, {
+  return ModelRuntime.initializeWithProvider(provider, {
     ...commonOptions,
     ...providerAuthPayload,
     ...payload,
@@ -172,14 +191,18 @@ class ChatService {
 
     // =================== 0. process search =================== //
     const chatConfig = agentChatConfigSelectors.currentChatConfig(getAgentStoreState());
-
+    const aiInfraStoreState = getAiInfraStoreState();
     const enabledSearch = chatConfig.searchMode !== 'off';
+    const isProviderHasBuiltinSearch = aiProviderSelectors.isProviderHasBuiltinSearch(
+      payload.provider!,
+    )(aiInfraStoreState);
     const isModelHasBuiltinSearch = aiModelSelectors.isModelHasBuiltinSearch(
       payload.model,
       payload.provider!,
-    )(getAiInfraStoreState());
+    )(aiInfraStoreState);
 
-    const useModelSearch = isModelHasBuiltinSearch && chatConfig.useModelBuiltinSearch;
+    const useModelSearch =
+      (isProviderHasBuiltinSearch || isModelHasBuiltinSearch) && chatConfig.useModelBuiltinSearch;
 
     const useApplicationBuiltinSearchTool = enabledSearch && !useModelSearch;
 
@@ -189,11 +212,14 @@ class ChatService {
       pluginIds.push(WebBrowsingManifest.identifier);
     }
 
-    // ============  1. preprocess messages   ============ //
+    // ============  1. preprocess placeholder variables   ============ //
+    const parsedMessages = parsePlaceholderVariablesMessages(messages);
 
-    const oaiMessages = this.processMessages(
+    // ============  2. preprocess messages   ============ //
+
+    const oaiMessages = await this.processMessages(
       {
-        messages,
+        messages: parsedMessages,
         model: payload.model,
         provider: payload.provider!,
         tools: pluginIds,
@@ -201,28 +227,28 @@ class ChatService {
       options,
     );
 
-    // ============  2. preprocess tools   ============ //
+    // ============  3. preprocess tools   ============ //
 
     const tools = this.prepareTools(pluginIds, {
       model: payload.model,
       provider: payload.provider!,
     });
 
-    // ============  3. process extend params   ============ //
+    // ============  4. process extend params   ============ //
 
     let extendParams: Record<string, any> = {};
 
     const isModelHasExtendParams = aiModelSelectors.isModelHasExtendParams(
       payload.model,
       payload.provider!,
-    )(getAiInfraStoreState());
+    )(aiInfraStoreState);
 
     // model
     if (isModelHasExtendParams) {
       const modelExtendParams = aiModelSelectors.modelExtendParams(
         payload.model,
         payload.provider!,
-      )(getAiInfraStoreState());
+      )(aiInfraStoreState);
       // if model has extended params, then we need to check if the model can use reasoning
 
       if (modelExtendParams!.includes('enableReasoning')) {
@@ -237,6 +263,12 @@ class ChatService {
             type: 'disabled',
           };
         }
+      } else if (modelExtendParams!.includes('reasoningBudgetToken')) {
+        // For models that only have reasoningBudgetToken without enableReasoning
+        extendParams.thinking = {
+          budget_tokens: chatConfig.reasoningBudgetToken || 1024,
+          type: 'enabled',
+        };
       }
 
       if (
@@ -248,6 +280,17 @@ class ChatService {
 
       if (modelExtendParams!.includes('reasoningEffort') && chatConfig.reasoningEffort) {
         extendParams.reasoning_effort = chatConfig.reasoningEffort;
+      }
+
+      if (modelExtendParams!.includes('thinking') && chatConfig.thinking) {
+        extendParams.thinking = { type: chatConfig.thinking };
+      }
+
+      if (
+        modelExtendParams!.includes('thinkingBudget') &&
+        chatConfig.thinkingBudget !== undefined
+      ) {
+        extendParams.thinkingBudget = chatConfig.thinkingBudget;
       }
     }
 
@@ -287,7 +330,7 @@ class ChatService {
   };
 
   getChatCompletion = async (params: Partial<ChatStreamPayload>, options?: FetchOptions) => {
-    const { signal } = options ?? {};
+    const { signal, responseAnimation } = options ?? {};
 
     const { provider = ModelProvider.OpenAI, ...res } = params;
 
@@ -307,9 +350,15 @@ class ChatService {
       model = findDeploymentName(model, provider);
     }
 
+    const apiMode = aiProviderSelectors.isProviderEnableResponseApi(provider)(
+      getAiInfraStoreState(),
+    )
+      ? 'responses'
+      : undefined;
+
     const payload = merge(
       { model: DEFAULT_AGENT_CONFIG.model, stream: true, ...DEFAULT_AGENT_CONFIG.params },
-      { ...res, model },
+      { ...res, apiMode, model },
     );
 
     /**
@@ -319,7 +368,10 @@ class ChatService {
 
     let fetcher: typeof fetch | undefined = undefined;
 
-    if (enableFetchOnClient) {
+    // Add desktop remote RPC fetch support
+    if (isDesktop) {
+      fetcher = fetchWithInvokeStream;
+    } else if (enableFetchOnClient) {
       /**
        * Notes:
        * 1. Browser agent runtime will skip auth check if a key and endpoint provided by
@@ -365,6 +417,16 @@ class ChatService {
       sdkType = providerConfig?.settings.sdkType || 'openai';
     }
 
+    const userPreferTransitionMode =
+      userGeneralSettingsSelectors.transitionMode(getUserStoreState());
+
+    // The order of the array is very important.
+    const mergedResponseAnimation = [
+      providerConfig?.settings?.responseAnimation || {},
+      userPreferTransitionMode,
+      responseAnimation,
+    ].reduce((acc, cur) => merge(acc, standardizeAnimationStyle(cur)), {});
+
     return fetchSSE(API_ENDPOINTS.chat(sdkType), {
       body: JSON.stringify(payload),
       fetcher: fetcher,
@@ -374,11 +436,8 @@ class ChatService {
       onErrorHandle: options?.onErrorHandle,
       onFinish: options?.onFinish,
       onMessageHandle: options?.onMessageHandle,
+      responseAnimation: mergedResponseAnimation,
       signal,
-      smoothing:
-        providerConfig?.settings?.smoothing ||
-        // @deprecated in V2
-        providerConfig?.smoothing,
     });
   };
 
@@ -437,7 +496,7 @@ class ChatService {
     onLoadingChange?.(true);
 
     try {
-      const oaiMessages = this.processMessages({
+      const oaiMessages = await this.processMessages({
         messages: params.messages as any,
         model: params.model!,
         provider: params.provider!,
@@ -469,7 +528,7 @@ class ChatService {
     }
   };
 
-  private processMessages = (
+  private processMessages = async (
     {
       messages = [],
       tools,
@@ -482,29 +541,28 @@ class ChatService {
       tools?: string[];
     },
     options?: FetchOptions,
-  ): OpenAIChatMessage[] => {
+  ): Promise<OpenAIChatMessage[]> => {
     // handle content type for vision model
     // for the models with visual ability, add image url to content
     // refs: https://platform.openai.com/docs/guides/vision/quick-start
-    const getUserContent = (m: ChatMessage) => {
+    const getUserContent = async (m: ChatMessage) => {
       // only if message doesn't have images and files, then return the plain content
       if ((!m.imageList || m.imageList.length === 0) && (!m.fileList || m.fileList.length === 0))
         return m.content;
 
       const imageList = m.imageList || [];
+      const imageContentParts = await this.processImageList({ imageList, model, provider });
 
       const filesContext = isServerMode
         ? filesPrompts({ addUrl: !isDesktop, fileList: m.fileList, imageList })
         : '';
       return [
         { text: (m.content + '\n\n' + filesContext).trim(), type: 'text' },
-        ...imageList.map(
-          (i) => ({ image_url: { detail: 'auto', url: i.url }, type: 'image_url' }) as const,
-        ),
+        ...imageContentParts,
       ] as UserMessageContentPart[];
     };
 
-    const getAssistantContent = (m: ChatMessage) => {
+    const getAssistantContent = async (m: ChatMessage) => {
       // signature is a signal of anthropic thinking mode
       const shouldIncludeThinking = m.reasoning && !!m.reasoning?.signature;
 
@@ -521,65 +579,70 @@ class ChatService {
       // only if message doesn't have images and files, then return the plain content
 
       if (m.imageList && m.imageList.length > 0) {
+        const imageContentParts = await this.processImageList({
+          imageList: m.imageList,
+          model,
+          provider,
+        });
         return [
           !!m.content ? { text: m.content, type: 'text' } : undefined,
-          ...m.imageList.map(
-            (i) => ({ image_url: { detail: 'auto', url: i.url }, type: 'image_url' }) as const,
-          ),
+          ...imageContentParts,
         ].filter(Boolean) as UserMessageContentPart[];
       }
 
       return m.content;
     };
 
-    let postMessages = messages.map((m): OpenAIChatMessage => {
-      const supportTools = isCanUseFC(model, provider);
-      switch (m.role) {
-        case 'user': {
-          return { content: getUserContent(m), role: m.role };
-        }
-
-        case 'assistant': {
-          const content = getAssistantContent(m);
-
-          if (!supportTools) {
-            return { content, role: m.role };
+    let postMessages = await Promise.all(
+      messages.map(async (m): Promise<OpenAIChatMessage> => {
+        const supportTools = isCanUseFC(model, provider);
+        switch (m.role) {
+          case 'user': {
+            return { content: await getUserContent(m), role: m.role };
           }
 
-          return {
-            content,
-            role: m.role,
-            tool_calls: m.tools?.map(
-              (tool): MessageToolCall => ({
-                function: {
-                  arguments: tool.arguments,
-                  name: genToolCallingName(tool.identifier, tool.apiName, tool.type),
-                },
-                id: tool.id,
-                type: 'function',
-              }),
-            ),
-          };
-        }
+          case 'assistant': {
+            const content = await getAssistantContent(m);
 
-        case 'tool': {
-          if (!supportTools) {
-            return { content: m.content, role: 'user' };
+            if (!supportTools) {
+              return { content, role: m.role };
+            }
+
+            return {
+              content,
+              role: m.role,
+              tool_calls: m.tools?.map(
+                (tool): MessageToolCall => ({
+                  function: {
+                    arguments: tool.arguments,
+                    name: genToolCallingName(tool.identifier, tool.apiName, tool.type),
+                  },
+                  id: tool.id,
+                  type: 'function',
+                }),
+              ),
+            };
           }
 
-          return {
-            content: m.content,
-            name: genToolCallingName(m.plugin!.identifier, m.plugin!.apiName, m.plugin?.type),
-            role: m.role,
-            tool_call_id: m.tool_call_id,
-          };
-        }
+          case 'tool': {
+            if (!supportTools) {
+              return { content: m.content, role: 'user' };
+            }
 
-        default: {
-          return { content: m.content, role: m.role as any };
+            return {
+              content: m.content,
+              name: genToolCallingName(m.plugin!.identifier, m.plugin!.apiName, m.plugin?.type),
+              role: m.role,
+              tool_call_id: m.tool_call_id,
+            };
+          }
+
+          default: {
+            return { content: m.content, role: m.role as any };
+          }
         }
-      }
-    });
+      }),
+    );
 
     postMessages = produce(postMessages, (draft) => {
       // if it's a welcome question, inject InboxGuide SystemRole
@@ -619,6 +682,37 @@ class ChatService {
     return this.reorderToolMessages(postMessages);
   };
 
+  /**
+   * Process imageList: convert local URLs to base64 and format as UserMessageContentPart
+   */
+  private processImageList = async ({
+    model,
+    provider,
+    imageList,
+  }: {
+    imageList: ChatImageItem[];
+    model: string;
+    provider: string;
+  }) => {
+    if (!isCanUseVision(model, provider)) {
+      return [];
+    }
+
+    return Promise.all(
+      imageList.map(async (image) => {
+        const { type } = parseDataUri(image.url);
+
+        let processedUrl = image.url;
+        if (type === 'url' && isLocalUrl(image.url)) {
+          const { base64, mimeType } = await imageUrlToBase64(image.url);
+          processedUrl = `data:${mimeType};base64,${base64}`;
+        }
+
+        return { image_url: { detail: 'auto', url: processedUrl }, type: 'image_url' } as const;
+      }),
+    );
+  };
+
   private mapTrace = (trace?: TracePayload, tag?: TraceTagMap): TracePayload => {
     const tags = sessionMetaSelectors.currentAgentMeta(getSessionStoreState()).tags || [];
 
@@ -643,9 +737,6 @@ class ChatService {
     provider: string;
     signal?: AbortSignal;
   }) => {
-    const agentRuntime = await initializeWithClientStore(params.provider, params.payload);
-    const data = params.payload as ChatStreamPayload;
-
     /**
      * if enable login and not signed in, return unauthorized error
      */
@@ -653,6 +744,9 @@ class ChatService {
     if (enableAuth && !userStore.isSignedIn) {
       throw AgentRuntimeError.createError(ChatErrorType.InvalidAccessCode);
     }
+
+    const agentRuntime = await initializeWithClientStore(params.provider, params.payload);
+    const data = params.payload as ChatStreamPayload;
 
     return agentRuntime.chat(data, { signal: params.signal });
   };

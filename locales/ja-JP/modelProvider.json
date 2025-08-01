@@ -66,6 +66,7 @@
       "customRegion": "カスタムサービスリージョン",
       "customSessionToken": "カスタムセッショントークン",
       "description": "AWS AccessKeyId / SecretAccessKey を入力するとセッションを開始できます。アプリは認証情報を記録しません",
+      "imageGenerationDescription": "AWSのAccessKeyId / SecretAccessKeyを入力すると、生成を開始できます。アプリは認証情報を記録しません。",
       "title": "使用カスタム Bedrock 認証情報"
     }
   },
@@ -188,6 +189,7 @@
       "aesGcm": "あなたのキーとプロキシアドレスなどは <1>AES-GCM</1> 暗号化アルゴリズムを使用して暗号化されます",
       "apiKey": {
         "desc": "あなたの {{name}} API キーを入力してください",
+        "descWithUrl": "あなたの {{name}} APIキーを入力してください。<3>こちらから取得できます</3>",
         "placeholder": "{{name}} API キー",
         "title": "API キー"
       },
@@ -208,6 +210,10 @@
         "title": "クライアントリクエストモードを使用"
       },
       "helpDoc": "設定ガイド",
+      "responsesApi": {
+        "desc": "OpenAIの新世代リクエストフォーマット規格を採用し、チェーン思考などの高度な機能を解放します",
+        "title": "Responses API 規格の使用"
+      },
       "waitingForMore": "さらに多くのモデルが <1>接続予定</1> です。お楽しみに"
     },
     "createNew": {

@@ -7,6 +7,25 @@ const hunyuanChatModels: AIChatModelCard[] = [
       reasoning: true,
       search: true,
     },
+    contextWindowTokens: 256_000,
+    description:
+      '混元第一个混合推理模型，hunyuan-standard-256K 的升级版本，总参数80B，激活13B，默认是慢思考模式，支持通过参数或者指令进行快慢思考模式切换，慢快思考切换方式为 query 前加/ no_think；整体能力相对上一代全面提升，特别数学、科学、长文理解和 Agent 能力提升显著。',
+    displayName: 'Hunyuan A13B',
+    enabled: true,
+    id: 'hunyuan-a13b',
+    maxOutput: 32_000,
+    releasedAt: '2025-06-25',
+    settings: {
+      extendParams: ['enableReasoning'],
+      searchImpl: 'params',
+    },
+    type: 'chat',
+  },
+  {
+    abilities: {
+      reasoning: true,
+      search: true,
+    },
     contextWindowTokens: 92_000,
     description:
       '业内首个超大规模 Hybrid-Transformer-Mamba 推理模型，扩展推理能力，超强解码速度，进一步对齐人类偏好。',
@@ -20,6 +39,50 @@ const hunyuanChatModels: AIChatModelCard[] = [
       output: 4,
     },
     releasedAt: '2025-05-21',
+    settings: {
+      searchImpl: 'params',
+    },
+    type: 'chat',
+  },
+  {
+    abilities: {
+      reasoning: true,
+      search: true,
+    },
+    contextWindowTokens: 92_000,
+    description:
+      '大幅提升高难度数学、逻辑和代码能力，优化模型输出稳定性，提升模型长文能力。',
+    displayName: 'Hunyuan T1 20250711',
+    id: 'hunyuan-t1-20250711',
+    maxOutput: 64_000,
+    pricing: {
+      currency: 'CNY',
+      input: 1,
+      output: 4,
+    },
+    releasedAt: '2025-07-11',
+    settings: {
+      searchImpl: 'params',
+    },
+    type: 'chat',
+  },
+  {
+    abilities: {
+      reasoning: true,
+      search: true,
+    },
+    contextWindowTokens: 92_000,
+    description:
+      '优化文本创作、作文写作，优化代码前端、数学、逻辑推理等理科能力，提升指令遵循能力。',
+    displayName: 'Hunyuan T1 20250529',
+    id: 'hunyuan-t1-20250529',
+    maxOutput: 64_000,
+    pricing: {
+      currency: 'CNY',
+      input: 1,
+      output: 4,
+    },
+    releasedAt: '2025-05-29',
     settings: {
       searchImpl: 'params',
     },
@@ -263,6 +326,28 @@ const hunyuanChatModels: AIChatModelCard[] = [
       functionCall: true,
       search: true,
     },
+    contextWindowTokens: 44_000,
+    description:
+      '预训练底座升级，写作、阅读理解能力提升，较大幅度提升代码和理科能力，复杂指令遵循等持续提升。',
+    displayName: 'Hunyuan TurboS 20250604',
+    id: 'hunyuan-turbos-20250604',
+    maxOutput: 16_000,
+    pricing: {
+      currency: 'CNY',
+      input: 0.8,
+      output: 2,
+    },
+    releasedAt: '2025-06-04',
+    settings: {
+      searchImpl: 'params',
+    },
+    type: 'chat',
+  },
+  {
+    abilities: {
+      functionCall: true,
+      search: true,
+    },
     contextWindowTokens: 32_000,
     description:
       '预训练底座升级，增强底座的指令理解及遵循能力；对齐阶段增强数学、代码、逻辑、科学等理科能力；提升文创写作质量、文本理解、翻译准确率、知识问答等文科能力；增强各领域 Agent 能力，重点加强多轮对话理解能力等。',
@@ -322,7 +407,6 @@ const hunyuanChatModels: AIChatModelCard[] = [
     contextWindowTokens: 8000,
     description: '混元最新多模态模型，支持多语种作答，中英文能力均衡。',
     displayName: 'Hunyuan Standard Vision',
-    enabled: true,
     id: 'hunyuan-standard-vision',
     maxOutput: 2000,
     releasedAt: '2024-12-31',
@@ -364,13 +448,73 @@ const hunyuanChatModels: AIChatModelCard[] = [
       reasoning: true,
       vision: true,
     },
+    contextWindowTokens: 40_000,
+    description:
+      '混元最新版t1-vision多模态理解深度思考模型，支持多模态原生长思维链，相比上一代默认版本模型全面提升。',
+    displayName: 'Hunyuan T1 Vision 20250619',
+    id: 'hunyuan-t1-vision-20250619',
+    maxOutput: 24_000,
+    pricing: {
+      currency: 'CNY',
+      input: 1,
+      output: 4,
+    },
+    releasedAt: '2025-06-19',
+    type: 'chat',
+  },
+  {
+    abilities: {
+      reasoning: true,
+      vision: true,
+    },
     contextWindowTokens: 32_000,
     description:
       '混元多模态理解深度思考模型，支持多模态原生长思维链，擅长处理各种图片推理场景，在理科难题上相比快思考模型全面提升。',
     displayName: 'Hunyuan T1 Vision',
     id: 'hunyuan-t1-vision',
     maxOutput: 24_000,
+    pricing: {
+      currency: 'CNY',
+      input: 1,
+      output: 4,
+    },
     releasedAt: '2025-05-16',
+    type: 'chat',
+  },
+  {
+    abilities: {
+      vision: true,
+    },
+    contextWindowTokens: 32_000,
+    description:
+      '混元最新版turbos-vision视觉语言旗舰大模型，在图文理解相关的任务上，包括基于图片的实体识别、知识问答、文案创作、拍照解题等上面相比上一代默认版本模型全面提升。',
+    displayName: 'Hunyuan TurboS Vision 20250619',
+    id: 'hunyuan-turbos-vision-20250619',
+    maxOutput: 16_000,
+    pricing: {
+      currency: 'CNY',
+      input: 3,
+      output: 9,
+    },
+    releasedAt: '2025-06-19',
+    type: 'chat',
+  },
+  {
+    abilities: {
+      vision: true,
+    },
+    contextWindowTokens: 32_000,
+    description:
+      '此模型适用于图文理解场景，是基于混元最新 turbos 的新一代视觉语言旗舰大模型，聚焦图文理解相关任务，包括基于图片的实体识别、知识问答、文案创作、拍照解题等方面，相比前一代模型全面提升。',
+    displayName: 'Hunyuan TurboS Vision',
+    id: 'hunyuan-turbos-vision',
+    maxOutput: 24_000,
+    pricing: {
+      currency: 'CNY',
+      input: 3,
+      output: 9,
+    },
+    releasedAt: '2025-05-23',
     type: 'chat',
   },
   {

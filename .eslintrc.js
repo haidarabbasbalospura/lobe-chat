@@ -19,6 +19,8 @@ config.rules['unicorn/no-array-for-each'] = 0;
 config.rules['unicorn/prefer-number-properties'] = 0;
 config.rules['unicorn/prefer-query-selector'] = 0;
 config.rules['unicorn/no-array-callback-reference'] = 0;
+// FIXME: Linting error in src/app/[variants]/(main)/chat/features/Migration/DBReader.ts, the fundamental solution should be upgrading typescript-eslint
+config.rules['@typescript-eslint/no-useless-constructor'] = 0;
 
 config.overrides = [
   {
@@ -32,6 +34,16 @@ config.overrides = [
     },
     settings: {
       'mdx/code-blocks': false,
+    },
+  },
+
+  {
+    files: ['src/store/image/**/*', 'src/types/generation/**/*'],
+    rules: {
+      '@typescript-eslint/no-empty-interface': 0,
+      'sort-keys-fix/sort-keys-fix': 0,
+      'typescript-sort-keys/interface': 0,
+      'typescript-sort-keys/string-enum': 0,
     },
   },
 ];

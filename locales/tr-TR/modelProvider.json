@@ -66,6 +66,7 @@
       "customRegion": "Özel Bölge",
       "customSessionToken": "Özel Oturum Tokeni",
       "description": "AWS AccessKeyId / SecretAccessKey bilgilerinizi girerek oturumu başlatabilirsiniz. Uygulama kimlik doğrulama bilgilerinizi kaydetmez.",
+      "imageGenerationDescription": "AWS AccessKeyId / SecretAccessKey bilgilerinizi girerek üretime başlayabilirsiniz. Uygulama kimlik doğrulama yapılandırmanızı kaydetmez",
       "title": "Özel Bedrock Kimlik Bilgilerini Kullan"
     }
   },
@@ -188,6 +189,7 @@
       "aesGcm": "Anahtarınız ve proxy adresi gibi bilgiler <1>AES-GCM</1> şifreleme algoritması ile şifrelenecektir",
       "apiKey": {
         "desc": "{{name}} API Anahtarınızı girin",
+        "descWithUrl": "Lütfen {{name}} API Anahtarınızı girin, <3>buraya tıklayarak alın</3>",
         "placeholder": "{{name}} API Anahtarı",
         "title": "API Anahtarı"
       },
@@ -208,6 +210,10 @@
         "title": "İstemci İstek Modunu Kullan"
       },
       "helpDoc": "Yapılandırma Kılavuzu",
+      "responsesApi": {
+        "desc": "OpenAI'nin yeni nesil istek formatı standardını kullanarak düşünce zinciri gibi gelişmiş özelliklerin kilidini açın",
+        "title": "Responses API Standardını Kullan"
+      },
       "waitingForMore": "Daha fazla model <1>planlanıyor</1>, lütfen bekleyin"
     },
     "createNew": {

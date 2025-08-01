@@ -7,7 +7,7 @@ export interface ModelProcessorConfig {
   visionKeywords?: readonly string[];
 }
 
-// 模型标签关键词配置
+// 模型能力标签关键词配置
 export const MODEL_LIST_CONFIGS = {
   anthropic: {
     functionCallKeywords: ['claude'],
@@ -48,6 +48,11 @@ export const MODEL_LIST_CONFIGS = {
     reasoningKeywords: ['qvq', 'qwq', 'qwen3'],
     visionKeywords: ['qvq', 'vl'],
   },
+  v0: {
+    functionCallKeywords: ['v0'],
+    reasoningKeywords: ['v0-1.5'],
+    visionKeywords: ['v0'],
+  },
   volcengine: {
     functionCallKeywords: ['doubao-1.5'],
     reasoningKeywords: ['thinking', '-r1'],
@@ -59,7 +64,7 @@ export const MODEL_LIST_CONFIGS = {
   },
   zhipu: {
     functionCallKeywords: ['glm-4', 'glm-z1'],
-    reasoningKeywords: ['glm-zero', 'glm-z1'],
+    reasoningKeywords: ['glm-zero', 'glm-z1', 'glm-4.5'],
     visionKeywords: ['glm-4v'],
   },
 } as const;
@@ -72,6 +77,7 @@ export const PROVIDER_DETECTION_CONFIG = {
   llama: ['llama'],
   openai: ['o1', 'o3', 'o4', 'gpt-'],
   qwen: ['qwen', 'qwq', 'qvq'],
+  v0: ['v0'],
   volcengine: ['doubao'],
   zeroone: ['yi-'],
   zhipu: ['glm'],
@@ -130,6 +136,7 @@ const processModelCard = (
       reasoningKeywords.some((keyword) => model.id.toLowerCase().includes(keyword)) ||
       knownModel?.abilities?.reasoning ||
       false,
+    type: model.type || knownModel?.type || 'chat',
     vision:
       (visionKeywords.some((keyword) => model.id.toLowerCase().includes(keyword)) &&
         !isExcludedModel) ||

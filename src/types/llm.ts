@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 
-import { ChatModelPricing } from '@/types/aiModel';
+import { AiModelType, ChatModelPricing } from '@/types/aiModel';
 import { AiProviderSettings } from '@/types/aiProvider';
 
 export type ModelPriceCurrency = 'CNY' | 'USD';
@@ -53,19 +53,28 @@ export interface ChatModelCard {
    */
   releasedAt?: string;
 
+  type?: AiModelType;
+
   /**
    *  whether model supports vision
    */
   vision?: boolean;
 }
 
-export interface SmoothingParams {
-  speed?: number;
-  text?: boolean;
-  toolsCalling?: boolean;
-}
+export type ResponseAnimationStyle = 'smooth' | 'fadeIn' | 'none';
+export type ResponseAnimation =
+  | {
+      speed?: number;
+      text?: ResponseAnimationStyle;
+      toolsCalling?: ResponseAnimationStyle;
+    }
+  | ResponseAnimationStyle;
 
 export interface ModelProviderCard {
+  /**
+   * url to get api key
+   */
+  apiKeyUrl?: string;
   /**
    * @deprecated
    */
@@ -137,11 +146,6 @@ export interface ModelProviderCard {
    * whether to show the provider config
    */
   showConfig?: boolean;
-  /**
-   * whether to smoothing the output
-   * @deprecated
-   */
-  smoothing?: SmoothingParams;
   /**
    * provider's website url
    */
